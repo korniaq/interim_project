@@ -1,0 +1,26 @@
+<NEKTAR>
+	<CONDITIONS>
+		<SOLVERINFO>
+			<I PROPERTY="EQTYPE"		VALUE="Poisson"/>
+			<I PROPERTY="Projection"	VALUE="Continuous"/>
+		</SOLVERINFO>
+		
+		<VARIABLES> 
+			<V ID="0"> u </V> 
+		</VARIABLES> 
+		
+		<BOUNDARYREGIONS>
+			<B ID="0"> C[7] </B>
+		</BOUNDARYREGIONS>
+
+		<BOUNDARYCONDITIONS>
+			<REGION REF="0">
+				<D VAR="u"	VALUE="0"/>
+			</REGION>
+		</BOUNDARYCONDITIONS>
+
+		<FUNCTION NAME="Forcing">
+			<E VAR="u"	VALUE="-1"/>
+		</FUNCTION>
+	</CONDITIONS>
+</NEKTAR>
