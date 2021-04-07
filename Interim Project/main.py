@@ -1,10 +1,17 @@
 import numpy as np
+import fileinput
+import os
+import subprocess
+from pyGPGO.covfunc import squaredExponential
+from pyGPGO.acquisition import Acquisition
+from pyGPGO.surrogates.GaussianProcess import GaussianProcess
+from pyGPGO.GPGO import GPGO
+
+scrFile = "geom.scr"
+params_tested = []
 
 
 def change_parameters(file_name, new_s, new_n):
-    import fileinput
-    import os
-
     curr_dir = os.path.dirname(__file__)
     geom_file = os.path.join(curr_dir, file_name)
     temp_file = os.path.join(curr_dir, "temp-s{}-n{}".format(new_s, new_n))
@@ -27,8 +34,6 @@ def change_parameters(file_name, new_s, new_n):
 
 
 def solve(file_name):
-    import os
-
     command = "gmsh " + file_name + " -2 -o geom.msh -order 9"
     print(command)
     os.system(command)
@@ -38,18 +43,46 @@ def solve(file_name):
     command = "ADRSolver geom.xml conditions.xml"
     print(command)
     os.system(command)
-    command = "FieldConvert geom.xml geom.fld geom.vtu"
-    print(command)
-    os.system(command)
 
     command = "rm geom.bak*.fld"
     os.system(command)
-    # command = "cp geom.vtu ~/Shared/geom.vtu"
-    # os.system(command)
 
 
-scrFile = "geom.scr"
-NEW_S = 0.2
-NEW_N = 3
-change_parameters(scrFile, NEW_S, NEW_N)
+def get_integral(s, n):
+    change_parameters(scrFile, s, n)
+    solve(scrFile)
+
+    integral = 0.
+    output = str(subprocess.check_output("FieldConvert geom.xml geom.fld -m mean geom.plt", shell=True)).splitlines()[0].split('\\n') #ugh
+    for o in output:
+        if o.startswith('Integral'):
+            integral = float(o.replace('Integral (variable u) : ', ''))
+    os.system("rm geom.plt")
+    params_tested.append([s, n, integral])
+    return integral
+
+
+sexp = squaredExponential()
+gp = GaussianProcess(sexp)
+acq = Acquisition(mode='ExpectedImprovement')
+param = {'s': ('cont', [0, 0.9]),
+         'n': ('cont', [2, 4])}
+
+np.random.seed(23)
+gpgo = GPGO(gp, acq, get_integral, param)
+gpgo.run(max_iter=20)
+max_params, max_int = gpgo.getResult()
+
+change_parameters(scrFile, max_params['s'], max_params['n'])
 solve(scrFile)
+
+os.system("rm geom.vtu")
+os.system("FieldConvert geom.xml geom.fld geom.vtu")
+os.system("rm ~/Shared/geom.vtu")
+os.system("cp geom.vtu ~/Shared/geom.vtu")
+
+print("parameters tested:")
+for par in params_tested:
+    print('for s = {:.4f} \t n = {:.4f} \t obtained integral: {:.4f}'.format(par[0], par[1], par[2]))
+print('optimal parameters are s = {:.4f} \t n = {:.4f}'.format(max_params['s'], max_params['n']))
+print('value of maximum integral is: {:.4f}'.format(max_int))

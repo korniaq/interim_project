@@ -1,10 +1,10 @@
-N=3;
+N=2.0;
 
 nx = 15*N; //number of nodes in the x dir
 
 ny = 11; //number of nodes in the y dir
 
-S=0.2;
+S=0.8665958282861901;
 
 
 L=16;
